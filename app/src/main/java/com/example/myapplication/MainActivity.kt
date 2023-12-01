@@ -36,6 +36,8 @@ import androidx.core.content.ContextCompat
 import com.example.myapplication.ui.theme.MyApplicationTheme
 import org.pytorch.IValue
 import org.pytorch.LiteModuleLoader
+import org.pytorch.Module
+import org.pytorch.Tensor
 import org.pytorch.torchvision.TensorImageUtils
 import java.io.File
 import java.io.FileInputStream
@@ -50,6 +52,9 @@ import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
 
+    private val labels = listOf("Safe Driving", "Text Right", "Phone Right", "Text Left", "Phone Left", "Adjusting Radio", "Drinking", "Reaching Behind", "Hair or Makeup", "Talking to Passenger")
+    private lateinit var model: Module
+
     @Throws(IOException::class)
     private fun getModelByteBuffer(assetManager: AssetManager, modelPath: String): MappedByteBuffer {
         val fileDescriptor = assetManager.openFd(modelPath)
@@ -60,6 +65,31 @@ class MainActivity : ComponentActivity() {
         return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
     }
 
+    private fun handleImageFrame(tensor: Tensor) {
+
+        val outputTensor = model.forward(IValue.from(tensor)).toTensor()
+        val scores: FloatArray = softmax(outputTensor.dataAsFloatArray)
+
+        var maxScore = -Float.MAX_VALUE
+        var maxScoreIdx = -1
+        for (i in scores.indices) {
+            if (scores[i] > maxScore) {
+                maxScore = scores[i]
+                maxScoreIdx = i
+            }
+        }
+
+        Log.i("cybertruck", labels[maxScoreIdx])
+        Log.i("cybertruck", scores.contentToString())
+
+        val topScores = topK(scores, 5)
+
+        activeClass.value = labels[maxScoreIdx]
+        secondClass.value = labels[topScores[1]]
+        thirdClass.value = labels[topScores[2]]
+        fourthClass.value = labels[topScores[3]]
+        fifthClass.value = labels[topScores[4]]
+    }
 
     private val requestCameraPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) {isGranted ->
         if (isGranted) {
@@ -107,25 +137,6 @@ class MainActivity : ComponentActivity() {
 
         return if (mediaDir != null && mediaDir.exists()) mediaDir else filesDir
     }
-
-//    override fun onCreate(savedInstanceState: Bundle?, persistentState: PersistableBundle?) {
-//        super.onCreate(savedInstanceState)
-//        setContent {
-//            if (shouldShowCamera.value) {
-//                CameraView(
-//                    outputDirectory = outputDirectory,
-//                    executor = cameraExecutor,
-//                    onImageCaptured = ::handleImageCapture,
-//                    onError = { Log.e("kilo", "View error:", it) }
-//                )
-//            }
-//        }
-//
-//        requestCameraPermission()
-//
-//        outputDirectory = getOutputDirectory()
-//        cameraExecutor = Executors.newSingleThreadExecutor()
-//    }
 
 
     override fun onDestroy() {
@@ -189,102 +200,41 @@ class MainActivity : ComponentActivity() {
         override fun onCreate(savedInstanceState: Bundle?) {
             super.onCreate(savedInstanceState)
 
-        val bitmap = BitmapFactory.decodeStream(assets.open("other.jpg"))
-        val module = LiteModuleLoader.load(assetFilePath(this, "smaller.ptl"))
+            model = LiteModuleLoader.load(assetFilePath(this, "smaller.ptl"))
 
-        val inputTensor = TensorImageUtils.bitmapToFloat32Tensor(
-            bitmap,
-            TensorImageUtils.TORCHVISION_NORM_MEAN_RGB, TensorImageUtils.TORCHVISION_NORM_STD_RGB
-        )
-
-        val outputTensor = module.forward(IValue.from(inputTensor)).toTensor()
-        val scores: FloatArray = outputTensor.getDataAsFloatArray()
-
-        var maxScore = -Float.MAX_VALUE
-        var maxScoreIdx = -1
-        for (i in scores.indices) {
-            if (scores[i] > maxScore) {
-                maxScore = scores[i]
-                maxScoreIdx = i
-            }
-        }
-
-//                                    Log.i("cybertruck", labels[maxScoreIdx])
-        Log.i("cybertruck", maxScoreIdx.toString())
-
-        Log.i("cybertruck", scores.contentToString())
-
-        val labels = listOf("Safe Driving", "Text Right", "Phone Right", "Text Left", "Phone Left", "Adjusting Radio", "Drinking", "Reaching Behind", "Hair or Makeup", "Talking to Passenger")
-
-        setContent {
-                MyApplicationTheme {
-
+            setContent {
+                    MyApplicationTheme {
                         CameraView(
-                    outputDirectory = outputDirectory,
-                    executor = cameraExecutor,
-                    onImageCaptured = ::handleImageCapture,
-                    onError = { Log.e("kilo", "View error:", it) },
-                            onFrame = { bmap ->
-
-
-
-                                cameraExecutor.execute {
-                                    val matrix = Matrix()
-
-
-
-                                    val outputTensor = module.forward(IValue.from(bmap)).toTensor()
-                                    val scores: FloatArray = softmax(outputTensor.dataAsFloatArray)
-
-
-
-                                    var maxScore = -Float.MAX_VALUE
-                                    var maxScoreIdx = -1
-                                    for (i in scores.indices) {
-                                        if (scores[i] > maxScore) {
-                                            maxScore = scores[i]
-                                            maxScoreIdx = i
-                                        }
+                        outputDirectory = outputDirectory,
+                        executor = cameraExecutor,
+                        onImageCaptured = ::handleImageCapture,
+                        onError = { Log.e("kilo", "View error:", it) },
+                                onFrame = { tensor ->
+                                    cameraExecutor.execute {
+                                        handleImageFrame(tensor)
                                     }
-
-                                    Log.i("cybertruck", labels[maxScoreIdx])
-                                    Log.i("cybertruck", scores.contentToString())
-
-                                    val topScores = topK(scores, 5)
-                                    
-                                    activeClass.value = labels[maxScoreIdx]
-                                    secondClass.value = labels[topScores[1]]
-                                    thirdClass.value = labels[topScores[2]]
-                                    fourthClass.value = labels[topScores[3]]
-                                    fifthClass.value = labels[topScores[4]]
-
-
                                 }
-
-
+                        )
+                        BottomAppBar {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text("1. ${activeClass.value}", fontSize = 30.sp, modifier = Modifier.padding(10.dp))
+                                Text("2. ${secondClass.value}", modifier = Modifier.padding(10.dp))
+                                Text("3. ${thirdClass.value}", modifier = Modifier.padding(10.dp))
+                                Text("4. ${fourthClass.value}", modifier = Modifier.padding(10.dp))
+                                Text("5. ${fifthClass.value}", modifier = Modifier.padding(10.dp))
                             }
-              )
-                    BottomAppBar {
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text("1. ${activeClass.value}", fontSize = 30.sp, modifier = Modifier.padding(10.dp))
-                            Text("2. ${secondClass.value}", modifier = Modifier.padding(10.dp))
-                            Text("3. ${thirdClass.value}", modifier = Modifier.padding(10.dp))
-                            Text("4. ${fourthClass.value}", modifier = Modifier.padding(10.dp))
-                            Text("5. ${fifthClass.value}", modifier = Modifier.padding(10.dp))
+
                         }
 
                     }
-
                 }
-            }
 
         requestCameraPermission()
-
         outputDirectory = getOutputDirectory()
-        cameraExecutor = Executors.newSingleThreadExecutor()
+        cameraExecutor = Executors.newCachedThreadPool()
 }
 
 
