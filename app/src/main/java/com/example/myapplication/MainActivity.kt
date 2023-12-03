@@ -242,10 +242,6 @@ class MainActivity : ComponentActivity() {
                                     var maxScoreIdx = -1
                                     for (i in scores.indices) {
                                         if (scores[i] > maxScore) {
-
-                                            if (i == 8){
-                                                continue2
-                                            }
                                             maxScore = scores[i]
                                             maxScoreIdx = i
                                         }
