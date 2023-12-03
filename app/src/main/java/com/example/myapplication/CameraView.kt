@@ -134,13 +134,13 @@ fun  CameraView(outputDirectory: File, executor: Executor, onImageCaptured: (Uri
             val elapsedAnalysisTime = measureTimeMillis {
                 // Process the image frames here
                 val mInputTensorBuffer =
-                    Tensor.allocateFloatBuffer(3 * 224 * 224)
+                    Tensor.allocateFloatBuffer(3 * 299 * 299)
                 val mInputTensor = Tensor.fromBlob(
                     mInputTensorBuffer,
-                    longArrayOf(1, 3, 224, 224)
+                    longArrayOf(1, 3, 299, 299)
                 )
 
-                TensorImageUtils.imageYUV420CenterCropToFloatBuffer(imageProxy.image, imageProxy.imageInfo.rotationDegrees, 224, 224, floatArrayOf(0.3357F,0.3277F,0.3343F),
+                TensorImageUtils.imageYUV420CenterCropToFloatBuffer(imageProxy.image, imageProxy.imageInfo.rotationDegrees, 299, 299, floatArrayOf(0.3357F,0.3277F,0.3343F),
                     floatArrayOf(0.3447F,0.3375F, 0.3347F),
                     mInputTensorBuffer, 0)
 

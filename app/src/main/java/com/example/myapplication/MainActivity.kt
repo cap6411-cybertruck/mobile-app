@@ -200,7 +200,7 @@ class MainActivity : ComponentActivity() {
         override fun onCreate(savedInstanceState: Bundle?) {
             super.onCreate(savedInstanceState)
 
-            model = LiteModuleLoader.load(assetFilePath(this, "smaller.ptl"))
+            model = LiteModuleLoader.load(assetFilePath(this, "RAW_CNN_fixed_2.ptl"))
 
             setContent {
                     MyApplicationTheme {
