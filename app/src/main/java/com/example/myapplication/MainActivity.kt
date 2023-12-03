@@ -190,7 +190,7 @@ class MainActivity : ComponentActivity() {
             super.onCreate(savedInstanceState)
 
         val bitmap = BitmapFactory.decodeStream(assets.open("other.jpg"))
-        val module = LiteModuleLoader.load(assetFilePath(this, "smaller.ptl"))
+        val module = LiteModuleLoader.load(assetFilePath(this, "RAW_CNN_fixed_2.ptl"))
 
         val inputTensor = TensorImageUtils.bitmapToFloat32Tensor(
             bitmap,
@@ -242,6 +242,10 @@ class MainActivity : ComponentActivity() {
                                     var maxScoreIdx = -1
                                     for (i in scores.indices) {
                                         if (scores[i] > maxScore) {
+
+                                            if (i == 8){
+                                                continue2
+                                            }
                                             maxScore = scores[i]
                                             maxScoreIdx = i
                                         }
